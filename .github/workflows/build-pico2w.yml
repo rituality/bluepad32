@@ -7,6 +7,7 @@ on:
     paths:
       - 'examples/pico_w/**'
       - 'src/**'
+      - 'external/btstack/**'
       - '.github/workflows/build-pico2w.yml'
 
 permissions:
@@ -19,11 +20,11 @@ jobs:
 
     steps:
       - name: Checkout Bluepad32
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -35,24 +36,27 @@ jobs:
             libstdc++-arm-none-eabi-newlib \
             python3
 
-      - name: Download Raspberry Pi Pico SDK
+      - name: Download Pico SDK
         run: |
-          git clone --depth 1 --branch 2.2.0 \
+          git clone --depth 1 --branch 2.3.0 \
             https://github.com/raspberrypi/pico-sdk.git \
-            "$GITHUB_WORKSPACE/pico-sdk"
+            "$RUNNER_TEMP/pico-sdk"
 
-          cd "$GITHUB_WORKSPACE/pico-sdk"
+          cd "$RUNNER_TEMP/pico-sdk"
           git submodule update --init --recursive
 
-      - name: Configure Pico 2 W build
+      - name: Configure
         run: |
+          test -f external/btstack/src/hids_host.c
+
           cmake -S examples/pico_w -B build \
             -G Ninja \
             -DPICO_BOARD=pico2_w \
-            -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk" \
+            -DPICO_SDK_PATH="$RUNNER_TEMP/pico-sdk" \
+            -DBTSTACK_ROOT="$GITHUB_WORKSPACE/external/btstack" \
             -DCMAKE_BUILD_TYPE=Release
 
-      - name: Compile firmware
+      - name: Compile
         run: |
           cmake --build build --parallel 2
 
@@ -61,11 +65,10 @@ jobs:
           ls -lh build/bluepad32_picow_example_app.uf2
           test -s build/bluepad32_picow_example_app.uf2
 
-      - name: Upload Pico 2 W firmware
-        uses: actions/upload-artifact@v4
+      - name: Upload firmware
+        uses: actions/upload-artifact@v5
         with:
           name: Bluepad32-Pico2W
-          path: |
-            build/bluepad32_picow_example_app.uf2
+          path: build/bluepad32_picow_example_app.uf2
           if-no-files-found: error
           retention-days: 30
