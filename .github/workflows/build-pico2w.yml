@@ -1,0 +1,71 @@
+
+name: Build Bluepad32 for Pico 2 W
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'examples/pico_w/**'
+      - 'src/**'
+      - '.github/workflows/build-pico2w.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compile Pico 2 W firmware
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Bluepad32
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib \
+            python3
+
+      - name: Download Raspberry Pi Pico SDK
+        run: |
+          git clone --depth 1 --branch 2.2.0 \
+            https://github.com/raspberrypi/pico-sdk.git \
+            "$GITHUB_WORKSPACE/pico-sdk"
+
+          cd "$GITHUB_WORKSPACE/pico-sdk"
+          git submodule update --init --recursive
+
+      - name: Configure Pico 2 W build
+        run: |
+          cmake -S examples/pico_w -B build \
+            -G Ninja \
+            -DPICO_BOARD=pico2_w \
+            -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile firmware
+        run: |
+          cmake --build build --parallel 2
+
+      - name: Verify firmware
+        run: |
+          ls -lh build/bluepad32_picow_example_app.uf2
+          test -s build/bluepad32_picow_example_app.uf2
+
+      - name: Upload Pico 2 W firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bluepad32-Pico2W
+          path: |
+            build/bluepad32_picow_example_app.uf2
+          if-no-files-found: error
+          retention-days: 30
