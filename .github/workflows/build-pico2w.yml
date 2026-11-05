@@ -24,6 +24,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply Bluepad32 BTstack patches
+        run: |
+          cd external/btstack
+          git apply ../patches/*.patch
+
       - name: Install dependencies
         run: |
           sudo apt-get update
